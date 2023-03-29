@@ -32,12 +32,8 @@ will occur.}
 \item{type}{Type of Random Forest.  Only `classification` is implemented
 at this time.}
 
-\item{method}{Method used for determining if a node should split.
-Implemented methods are \code{method="gini"} for Gini Impurity
-(\code{p*(1-p)}), \code{method="entropy"} for entropy (\code{p*log_2(p)}),
-or \code{method="hellinger"} for the Hellinger distance between the rate
-at the node and the overall population (\code{sqrt(p) - sqrt(q)}).
-Defaults to \code{gini}.}
+\item{method}{Method used for determining if a node should split. Defaults to \code{gini}. 
+See details for more information.}
 
 \item{causal}{Is the Random Forest a Causal Random Forest?  Defaults to FALSE.}
 
@@ -63,14 +59,40 @@ training data.}
 This function initializes the online random forest (or causal online random
  forest).
 }
+\details{
+The supported methods vary for regression and classification forests, and for causal and non-causal forests.
+  Implemented methods for classification non-causal forests are \code{method="gini"} for Gini Impurity
+  \eqn{p(1-p)}, \code{method="entropy"} for entropy \eqn{plog_2(p)},
+  or \code{method="hellinger"} for the Hellinger distance between the rate
+  at the node and the overall population \eqn{\sqrt{p} - \sqrt{q}}.
+  
+  The causal classification forest maximizes the squared difference between treatment and control in the 
+  node. Left and right splits are evaluated separately and weighted together. 
+  
+  In the non-causal regression forests, the following methods are available for minimization: mse, amse, bcmse. 
+  \code{method="mse"} for mean squared error, \eqn{MSE=1/N\sum(Y-\hat{Y})^2}.
+  Adjusted MSE (Athey, Imbens 2016) is supported where \eqn{AMSE=1/N\sum(Y-\hat{Y})^2 - 1/N\sum \hat{Y}^2}.
+  bcmse, is bias corrected mse: \eqn{BCMSE = 1/N\sum(Y-\hat{Y})^2 - 1/N\sum \hat{Y}^2 + (\sum Y-\hat{Y})^2}. 
+  The \code{diff} method represents choosing splits based on maximizing the squared difference 
+  between the left and right children nodes when splitting. \eqn{diff = (1/N_left\sum Y_left - 1/N_right\sum Y_right)^2}.
+  
+  For causal regression forests, the Hellinger distance is available and the mean squared
+  error. For the Hellinger distance each treatment is considered against the population 
+  average: \eqn{D_Hellinger = \sum(\sqrt{1/N_leaf \sum Y_leaf} - \sqrt{1/N_pop \sum Y_pop})^2} where the sum
+  is performed over all treatments, \eqn{1/N_leaf \sum Y_leaf} is the mean of the outcome in the proposed split
+  and \eqn{1/N_pop \sum Y_pop} is the overall average for the outcome. The Hellinger distance is computed
+  for the left and right sides of each potential split, and the weighted average is maximized. The 
+  mean squared error is calculated as suggested by Athey & Imbens (2016): 
+  \eqn{MSE = 1/N\sum_t(Y_t - Y_0)^2} over all treatments t compared against the control.
+}
 \examples{
 ## simulate a data point with 10 columns
 x <- matrix(runif(10), nrow=1)
 
-## initialize the model object
+## initialize the model object for classification
 orfmod <- init_orf(numClasses = 2, numFeatures = 10, numRandomTests = 2,
                    counterThreshold = 10, maxDepth = 5, numTrees = 10,
-                   numEpochs = 1)
+                   numEpochs = 1, type="classification", method="gini")
 
 ## train the model with the data
 orfmod <- train_orf(model = orfmod, x = x, y=as.matrix(0))

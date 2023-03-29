@@ -93,6 +93,7 @@ public:
   
   Eigen::MatrixXd tauHatAllTrees; //capture values for all trees - one col per class one row per tree
   Eigen::VectorXd yHatAllTrees; //capture values for all trees - one entry per tree
+  Eigen::VectorXd wgtAllTrees; //capture weights for all trees
 };
 
 #endif /* DATA_H_ */

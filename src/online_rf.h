@@ -64,6 +64,7 @@ public:
 	     double trueYMean, double falseYMean,
 	     double trueYVar, double falseYVar,
 	     int trueCount, int falseCount,
+	     double trueY2, double falseY2,
 	     double trueErr, double falseErr,
 	     const Eigen::VectorXd &rootYStats, const double &rootCounter);
 
@@ -73,6 +74,7 @@ public:
 	     double trueYMean, double falseYMean,
 	     double trueYVar, double falseYVar,
 	     int trueCount, int falseCount,
+	     double trueY2, double falseY2,
 	     double trueErr, double falseErr,
 	     Eigen::VectorXd trueWCounts, Eigen::VectorXd falseWCounts,
 	     Eigen::VectorXd trueYStats, Eigen::VectorXd falseYStats,
@@ -94,6 +96,7 @@ public:
   pair<int, int> getTotCounts();
   pair<double, double> getYMeans();
   pair<double, double> getYVars();
+  pair<double, double> getY2s();
   pair<double, double> getErrs();
   pair<Eigen::VectorXd, Eigen::VectorXd> getWCounts();
   pair<Eigen::VectorXd, Eigen::VectorXd> getYStats();
@@ -134,8 +137,10 @@ public:
   double m_falseYMean; //mean of y for left side 
   double m_trueYVar; //mean of y for right side 
   double m_falseYVar; //mean of y for left side 
-  double m_trueErr; //total error for right side
-  double m_falseErr; //total error for left side
+  double m_trueY2; //mean of y^2 for right
+  double m_falseY2; //mean of y^2 for left
+  double m_trueErr; //mean of error for right
+  double m_falseErr; //mean of error for left
   Eigen::VectorXd m_trueWCounts; //vector of counts by treatment condition for right side. length numTreatments
   Eigen::VectorXd m_falseWCounts;//vector of counts by treatment condition for left side. length numTreatments
   Eigen::VectorXd m_trueYStats; //vector of means of y by treatment condition for right side. length numTreatments
@@ -198,6 +203,7 @@ public:
 	     const double parentCounter,
 	     const double parentYMean,
 	     const double parentYVar,
+	     const double parentY2,
 	     const double parentErr,
 	     int nodeNumber, int parentNodeNumber, int& numNodes,
 	     const Eigen::VectorXd &rootYStats, const double &rootCounter);
@@ -210,6 +216,7 @@ public:
 	     const double parentCounter,
 	     const double parentYMean,
 	     const double parentYVar,
+	     const double parentY2,
 	     const double parentErr,
 	     const Eigen::VectorXd& parentWCounts,
 	     const Eigen::VectorXd& parentYStats,
@@ -312,7 +319,8 @@ public:
   
   double m_yMean; //mean of outcome for the node
   double m_yVar; //variance in y for the node
-  double m_err; //total error for the node
+  double m_y2; //mean of y^2
+  double m_err; //mean of error
   Eigen::VectorXd m_tauHat; //treatment effects for the node if causal.  length numTreatments
   Eigen::VectorXd m_tauVarHat; //treatment effect variance estimate if causal. length numTreatments
 
@@ -425,9 +433,10 @@ public:
   void updateRegression(Sample& sample);
   
   //evaluate a new data point
-  void eval(Sample& sample, Result& result);
-  void evalClassification(Sample& sample, Result& result);
-  void evalRegression(Sample& sample, Result& result);
+  //  void eval(Sample& sample, Result& result);
+  void eval(Sample& sample, Result& result, bool treeWeight);
+  void evalClassification(Sample& sample, Result& result, bool treeWeight);
+  void evalRegression(Sample& sample, Result& result, bool treeWeight);
  
   //export forest parameters
   vector<Eigen::MatrixXd> exportParms(); 
@@ -451,7 +460,7 @@ public:
 
   //methods for training and testing with large amounts of data
   void train(DataSet& dataset);
-  vector<Result> test(DataSet& dataset);
+  vector<Result> test(DataSet& dataset, bool correctBias);
 
 protected:
   double m_counter;

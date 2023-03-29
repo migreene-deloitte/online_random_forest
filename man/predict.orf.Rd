@@ -4,7 +4,8 @@
 \alias{predict.orf}
 \title{Predict Online Random Forest}
 \usage{
-\method{predict}{orf}(object, x, allTrees = FALSE, ...)
+\method{predict}{orf}(object, x, allTrees = FALSE, treeWeight = FALSE,
+  ...)
 }
 \arguments{
 \item{object}{An online random forest object}
@@ -14,6 +15,8 @@ equal to `numFeatures` when forest was initialized.}
 
 \item{allTrees}{If a causal forest, should all TAUHAT estimates be returned?
 Default=FALSE.}
+
+\item{treeWeight}{Weight predictions by counts in trees? Default=FALSE}
 
 \item{...}{additional arguments affecting the predictions produced.}
 }

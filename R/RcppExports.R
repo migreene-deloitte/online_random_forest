@@ -17,8 +17,8 @@ corf <- function(x, y, treat, orfModel, trainModel = TRUE) {
     .Call('_corf_corf', PACKAGE = 'corf', x, y, treat, orfModel, trainModel)
 }
 
-predictOrf <- function(x, orfModel, allTrees = FALSE) {
-    .Call('_corf_predictOrf', PACKAGE = 'corf', x, orfModel, allTrees)
+predictOrf <- function(x, orfModel, allTrees = FALSE, treeWeight = FALSE) {
+    .Call('_corf_predictOrf', PACKAGE = 'corf', x, orfModel, allTrees, treeWeight)
 }
 
 causal_orf_cv <- function(x, y, treat, numClasses, numRandomTests, counterThreshold, maxDepth, numTrees, numEpochs, nfolds, type = "classification", method = "gini") {

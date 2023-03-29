@@ -35,12 +35,8 @@
 #' @param numClasses Number of classes expected to be classified (required > 0 if type=="classification"). Defaults to 0.
 #' @param type Type of Random Forest.  Only `classification` is implemented
 #' at this time.
-#' @param method Method used for determining if a node should split.
-#'   Implemented methods are \code{method="gini"} for Gini Impurity
-#'   (\code{p*(1-p)}), \code{method="entropy"} for entropy (\code{p*log_2(p)}),
-#'   or \code{method="hellinger"} for the Hellinger distance between the rate
-#'   at the node and the overall population (\code{sqrt(p) - sqrt(q)}).
-#'   Defaults to \code{gini}.
+#' @param method Method used for determining if a node should split. Defaults to \code{gini}. 
+#' See details for more information. 
 #' @param causal Is the Random Forest a Causal Random Forest?  Defaults to FALSE.
 #' @param minFeatRange If provided, the minimum expected values for the features.
 #'  Must be a vector of the same length as numFeatures.  The min and max feature
@@ -66,14 +62,39 @@
 #' @export hyperparameters A list with the hyperparameters passed to the model.
 #' @export labels Labels passed from the input.
 #' @seealso \code{\link{train_orf}} for training the orf object, \code{\link{predict.orf}} for making predictions from the orf object, and \code{\link{get_importance}} for getting variable importances from the orf object
+#' @details The supported methods vary for regression and classification forests, and for causal and non-causal forests.
+#'   Implemented methods for classification non-causal forests are \code{method="gini"} for Gini Impurity
+#'   \eqn{p(1-p)}, \code{method="entropy"} for entropy \eqn{plog_2(p)},
+#'   or \code{method="hellinger"} for the Hellinger distance between the rate
+#'   at the node and the overall population \eqn{\sqrt{p} - \sqrt{q}}.
+#'   
+#'   The causal classification forest maximizes the squared difference between treatment and control in the 
+#'   node. Left and right splits are evaluated separately and weighted together. 
+#'   
+#'   In the non-causal regression forests, the following methods are available for minimization: mse, amse, bcmse. 
+#'   \code{method="mse"} for mean squared error, \eqn{MSE=1/N\sum(Y-\hat{Y})^2}.
+#'   Adjusted MSE (Athey, Imbens 2016) is supported where \eqn{AMSE=1/N\sum(Y-\hat{Y})^2 - 1/N\sum \hat{Y}^2}.
+#'   bcmse, is bias corrected mse: \eqn{BCMSE = 1/N\sum(Y-\hat{Y})^2 - 1/N\sum \hat{Y}^2 + (\sum Y-\hat{Y})^2}. 
+#'   The \code{diff} method represents choosing splits based on maximizing the squared difference 
+#'   between the left and right children nodes when splitting. \eqn{diff = (1/N_left\sum Y_left - 1/N_right\sum Y_right)^2}.
+#'   
+#'   For causal regression forests, the Hellinger distance is available and the mean squared
+#'   error. For the Hellinger distance each treatment is considered against the population 
+#'   average: \eqn{D_Hellinger = \sum(\sqrt{1/N_leaf \sum Y_leaf} - \sqrt{1/N_pop \sum Y_pop})^2} where the sum
+#'   is performed over all treatments, \eqn{1/N_leaf \sum Y_leaf} is the mean of the outcome in the proposed split
+#'   and \eqn{1/N_pop \sum Y_pop} is the overall average for the outcome. The Hellinger distance is computed
+#'   for the left and right sides of each potential split, and the weighted average is maximized. The 
+#'   mean squared error is calculated as suggested by Athey & Imbens (2016): 
+#'   \eqn{MSE = 1/N\sum_t(Y_t - Y_0)^2} over all treatments t compared against the control.
+#'   
 #' @examples
 #' ## simulate a data point with 10 columns
 #' x <- matrix(runif(10), nrow=1)
 #'
-#' ## initialize the model object
+#' ## initialize the model object for classification
 #' orfmod <- init_orf(numClasses = 2, numFeatures = 10, numRandomTests = 2,
 #'                    counterThreshold = 10, maxDepth = 5, numTrees = 10,
-#'                    numEpochs = 1)
+#'                    numEpochs = 1, type="classification", method="gini")
 #'
 #' ## train the model with the data
 #' orfmod <- train_orf(model = orfmod, x = x, y=as.matrix(0))
@@ -90,9 +111,28 @@ init_orf <- function(numFeatures, numRandomTests, counterThreshold, maxDepth,
   ### error checking and overwriting ###
   if(type == "regression") {
     numClasses <- 0
+    
+    if(causal == FALSE) {
+      if(!(method) %in% c("mse","amse","diff","gini","et")) {
+        stop("method not supported for non-causal regression forest")
+      }
+    } else {
+      if(!method %in% c("mse","hellinger","diff")) {
+        stop("method not supported for causal regression forest")
+      }
+    }
   } else {
     if(numClasses <= 0) {
       stop('classification problem but numclasses <= 0')
+    }
+    if(causal == TRUE) {
+      if(!method %in% c("mse")) {
+        stop("method not supported for causal classification forest")
+      }
+    } else {
+      if(!method %in% c("gini","entropy","hellinger")) {
+        stop("method not supported for non-causal classification forest")
+      }
     }
   }
   if(causal == FALSE) {
@@ -101,6 +141,8 @@ init_orf <- function(numFeatures, numRandomTests, counterThreshold, maxDepth,
     if(numTreatments <= 0) {
       stop('causal model but treatments <= 0')
     }
+  }
+  if(!(method %in% c("mse",""))) {
   }
 
   
@@ -272,7 +314,7 @@ init_orf <- function(numFeatures, numRandomTests, counterThreshold, maxDepth,
         forest = matrix(
           data = NA,
           nrow = 1,
-          ncol = 13 + 10 * numRandomTests
+          ncol = 14 + 12 * numRandomTests
         )
         colnames_forest = c(
           "nodeNumber",
@@ -285,9 +327,10 @@ init_orf <- function(numFeatures, numRandomTests, counterThreshold, maxDepth,
           "parentCounter",
           "yMean",
           "yVar",
+          "y2",
           "err"
         )
-        fdat = c(0, -1, -1, -1, 0, 1, 0, 0, 0, 0, 0)
+        fdat = c(0, -1, -1, -1, 0, 1, 0, 0, 0, 0, 0, 0)
         
         colnames_forest = c(colnames_forest, "bestTest_feature", "bestTest_threshold")
         fdat = c(fdat, -1, 0)
@@ -307,21 +350,23 @@ init_orf <- function(numFeatures, numRandomTests, counterThreshold, maxDepth,
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_trueYMean"))
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_trueYVar"))
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_trueCount"))
+          colnames_forest = c(colnames_forest, paste0("randomTest", j, "_trueY2"))
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_trueErr"))
 
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_falseYMean"))
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_falseYVar"))
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_falseCount"))
+          colnames_forest = c(colnames_forest, paste0("randomTest", j, "_falseY2"))
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_falseErr"))
           
-          fdat = c(fdat, rep(0, 8))
+          fdat = c(fdat, rep(0, 10))
         }
         
       } else { #causal == TRUE       
         forest = matrix(
           data = NA,
           nrow = 1,
-          ncol = 13 + 10 * numRandomTests + 5 * numTreatments + 6 * numTreatments * numRandomTests
+          ncol = 14 + 12 * numRandomTests + 5 * numTreatments + 6 * numTreatments * numRandomTests
         )
         colnames_forest = c(
           "nodeNumber",
@@ -334,9 +379,10 @@ init_orf <- function(numFeatures, numRandomTests, counterThreshold, maxDepth,
           "parentCounter",
           "yMean",
           "yVar",
+          "y2",
           "err"
         )
-        fdat = c(0, -1, -1, -1, 0, 1, 0, 0, 0, 0, 0)
+        fdat = c(0, -1, -1, -1, 0, 1, 0, 0, 0, 0, 0, 0)
         
         colnames_forest = c(colnames_forest, paste0("tauHat_",c(0:(numTreatments-1))))
         fdat = c(fdat, rep(0,numTreatments))
@@ -366,14 +412,16 @@ init_orf <- function(numFeatures, numRandomTests, counterThreshold, maxDepth,
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_trueYMean"))
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_trueYVar"))
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_trueCount"))
+          colnames_forest = c(colnames_forest, paste0("randomTest", j, "_trueY2"))
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_trueErr"))
           
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_falseYMean"))
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_falseYVar"))
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_falseCount"))
+          colnames_forest = c(colnames_forest, paste0("randomTest", j, "_falseY2"))
           colnames_forest = c(colnames_forest, paste0("randomTest", j, "_falseErr"))
           
-          fdat = c(fdat, rep(0, 8))
+          fdat = c(fdat, rep(0, 10))
           
           for(i in c(0:(numTreatments-1))) {
             colnames_forest = c(colnames_forest, paste0("randomTest", j, "_trueCount", i))
@@ -533,6 +581,7 @@ train_orf <- function(model, x, y, w=NULL, trainModel=TRUE) {
 #'   equal to `numFeatures` when forest was initialized.
 #' @param allTrees If a causal forest, should all TAUHAT estimates be returned?
 #'   Default=FALSE.
+#' @param treeWeight Weight predictions by counts in trees? Default=FALSE
 #' @param ... additional arguments affecting the predictions produced.
 #' @keywords causal random forest, online learning, incremental learning,
 #'   out-of-core learning, online random forest
@@ -557,11 +606,11 @@ train_orf <- function(model, x, y, w=NULL, trainModel=TRUE) {
 #' p <- predict(orfmod, x)
 #' 
 
-predict.orf <- function(object, x, allTrees=FALSE, ...) {
+predict.orf <- function(object, x, allTrees=FALSE, treeWeight=FALSE, ...) {
   if(!is.orf(object)) {
     stop('model is not an object of class "orf"')
   }
-  return(predictOrf(as.matrix(x), object, allTrees))
+  return(predictOrf(as.matrix(x), object, allTrees, treeWeight))
 }
 
 #' Get Feature Importances
@@ -789,8 +838,8 @@ corf <- function(x, y, treat, orfModel, trainModel = TRUE) {
 #' will also return a matrix `tauHatAllTrees`. Default=FALSE.
 #' @seealso \code{\link{predict.orf}} for making predictions from the orf object.
 
-predictOrf <- function(x, orfModel, allTrees = FALSE) {
-  .Call('_corf_predictOrf', PACKAGE = 'corf', x, orfModel, allTrees)
+predictOrf <- function(x, orfModel, allTrees = FALSE, biasCorrect = FALSE) {
+  .Call('_corf_predictOrf', PACKAGE = 'corf', x, orfModel, allTrees, biasCorrect)
 }
 
 #' Causal Online Random Forest Cross Validation

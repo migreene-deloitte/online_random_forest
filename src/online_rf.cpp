@@ -125,6 +125,7 @@ RandomTest::RandomTest(const Hyperparameters& hp,
   m_trueCount(0), m_falseCount(0),
   m_trueYMean(0.0), m_falseYMean(0.0),
   m_trueYVar(0.0), m_falseYVar(0.0),
+  m_trueY2(0.0), m_falseY2(0.0),
   m_trueErr(0.0), m_falseErr(0.0),
   m_trueWCounts(Eigen::VectorXd::Zero(hp.numTreatments)),
   m_falseWCounts(Eigen::VectorXd::Zero(hp.numTreatments)),
@@ -143,6 +144,7 @@ RandomTest::RandomTest(const Hyperparameters& hp,
 		       double trueYMean, double falseYMean,
 		       double trueYVar, double falseYVar,
 		       int trueCount, int falseCount,
+		       double trueY2, double falseY2,
 		       double trueErr, double falseErr,
 		       const Eigen::VectorXd &rootYStats, 
 		       const double &rootCounter) :
@@ -152,6 +154,7 @@ RandomTest::RandomTest(const Hyperparameters& hp,
   m_trueCount(trueCount), m_falseCount(falseCount),
   m_trueYMean(trueYMean), m_falseYMean(falseYMean),
   m_trueYVar(trueYVar), m_falseYVar(falseYVar),
+  m_trueY2(trueY2), m_falseY2(falseY2),
   m_trueErr(trueErr), m_falseErr(falseErr)
 {
 }
@@ -163,6 +166,7 @@ RandomTest::RandomTest(const Hyperparameters& hp,
 		       double trueYMean, double falseYMean,
 		       double trueYVar, double falseYVar,
 		       int trueCount, int falseCount,
+		       double trueY2, double falseY2,
 		       double trueErr, double falseErr,
 		       Eigen::VectorXd trueWCounts, Eigen::VectorXd falseWCounts,
 		       Eigen::VectorXd trueYStats, Eigen::VectorXd falseYStats,
@@ -176,6 +180,7 @@ RandomTest::RandomTest(const Hyperparameters& hp,
   m_trueCount(trueCount), m_falseCount(falseCount),
   m_trueYMean(trueYMean), m_falseYMean(falseYMean),
   m_trueYVar(trueYVar), m_falseYVar(falseYVar),
+  m_trueY2(trueY2), m_falseY2(falseY2),
   m_trueErr(trueErr), m_falseErr(falseErr),
   m_trueWCounts(trueWCounts),
   m_falseWCounts(falseWCounts),
@@ -308,10 +313,47 @@ double RandomTest::scoreRegression() const {
     // weighted avg over treatments
     // weighted average for left and right sides
     //methods - 
-    // mse: squared difference between ratios of each treatment versus control 
+    // diff: difference between left and right splits.
     // hellinger: difference between all treatment versions and overall 
-
-    if(m_hp->type=="mse") {
+    // mse: squared difference between ratios of each treatment versus control 
+    if (m_hp->method == "diff") {
+      //directly maximize the difference between left and right splits
+      double score=0.0;
+      for(int nTreat=0; nTreat < m_hp->numTreatments; nTreat++) {
+	score += pow(m_trueYStats(nTreat) - m_falseYStats(nTreat),2) * (m_trueWCounts(nTreat) + m_falseWCounts(nTreat));
+      }
+      
+      if(m_trueWCounts.sum() + m_falseWCounts.sum() > 0) {
+	score /= (m_trueWCounts.sum() + m_falseWCounts.sum());
+      }
+      //looking to maximize the difference between the leaves
+      theta = -score;
+    } else if (m_hp->method == "hellinger") {
+      double trueScore = 0.0, falseScore = 0.0, p, p_root;
+      Eigen::VectorXd rootYStats = *m_rootYStats;
+      double trueCount = m_trueWCounts.sum();
+      double falseCount = m_falseWCounts.sum();
+      
+      if(trueCount > 0) {
+	for (int nTreat = 0; nTreat < m_hp->numTreatments; nTreat++) {
+	  if(*m_rootCounter > 0) {
+	    p_root = rootYStats(nTreat) / static_cast<double>(*m_rootCounter);
+	  }
+	  p = m_trueYStats(nTreat) / static_cast<double>(trueCount);
+	  trueScore += pow(sqrt(p) - sqrt(p_root),2);
+	}
+      }
+      if(falseCount > 0) {
+	for (int nTreat = 0; nTreat < m_hp->numTreatments; nTreat++) {
+	  if(*m_rootCounter > 0) {
+	    p_root = rootYStats(nTreat) / static_cast<double>(*m_rootCounter);
+	  }
+	  p = m_falseYStats(nTreat) / static_cast<double>(falseCount);
+	  falseScore += pow(sqrt(p) - sqrt(p_root),2);
+	}
+      }
+      theta = sqrt((trueCount * trueScore + falseCount * falseScore) / (trueCount + falseCount + 1e-16));
+    } else {
       double trueMSE=0.0, falseMSE=0.0, trueTauHat2=0.0, falseTauHat2=0.0;
       //total sum of square difference on the left side and right side
       for(int nTreat=0; nTreat < m_hp->numTreatments; nTreat++) {
@@ -336,45 +378,55 @@ double RandomTest::scoreRegression() const {
       //searching for minimum.  but goal is to maximize sum of squares between treatment and control
       //so looking to minimize  -SS
       theta = -theta;
-    } else if(m_hp->type == "hellinger") {
-      double trueScore = 0.0, falseScore = 0.0, p, p_root;
-      Eigen::VectorXd rootYStats = *m_rootYStats;
-      double trueCount = m_trueWCounts.sum();
-      double falseCount = m_falseWCounts.sum();
-
-      if(trueCount > 0) {
-	for (int nTreat = 0; nTreat < m_hp->numTreatments; nTreat++) {
-	  if(*m_rootCounter > 0) {
-	    p_root = rootYStats(nTreat) / static_cast<double>(*m_rootCounter);
-	  }
-	  p = m_trueYStats(nTreat) / static_cast<double>(trueCount);
-	  trueScore += pow(sqrt(p) - sqrt(p_root),2);
-	}
-      }
-      if(falseCount > 0) {
-	for (int nTreat = 0; nTreat < m_hp->numTreatments; nTreat++) {
-	  if(*m_rootCounter > 0) {
-	    p_root = rootYStats(nTreat) / static_cast<double>(*m_rootCounter);
-	  }
-	  p = m_falseYStats(nTreat) / static_cast<double>(falseCount);
-	  falseScore += pow(sqrt(p) - sqrt(p_root),2);
-	}
-      }
-      theta = sqrt((trueCount * trueScore + falseCount * falseScore) / (trueCount + falseCount + 1e-16));
-    }
+    } //close mse methods for causal trees
   } else { //not causal tree
     //minimizing the score directly
     // weighted average for left and right sides
     //methods -
-    // mse: squared difference between y and yhat
-    double trueMSE=0.0, falseMSE=0.0;
+    // mse: squared difference between y and yhat. MSE = mean((Y - Y_hat)^2)
+    // amse: adjusted mse. AMSE = mean((Y - Y_hat)^2) - Y^2
+    // diff: difference maximized between left and right splits. DIFF = (mean_L(Y) - mean_R(Y))^2
+    double trueScore = 0.0, falseScore = 0.0;
     if(m_trueCount > 0) {
-      trueMSE = pow(m_trueErr,2) / static_cast<double>(m_trueCount);
+       if(m_hp->method == "mse") {
+	 //MSE: traditional. 
+	 trueScore = m_trueYVar;
+       } else if(m_hp->method == "amse") {
+	 trueScore = m_trueYVar - pow(m_trueYMean,2); //since trueYMean is y_hat
+       } else if(m_hp->method == "diff") {
+	 trueScore = m_trueYMean;
+       } else if(m_hp->method == "gini") {
+	 //decrease in gini = sum(y^2) / n
+	 trueScore = pow(m_trueYMean,2) * m_trueCount;
+       } else if(m_hp->method == "et") {
+	 trueScore = m_trueY2 - pow(m_trueYMean,2);
+       }
     }
     if(m_falseCount > 0) {
-      falseMSE = pow(m_falseErr,2) / static_cast<double>(m_falseCount);
+       if(m_hp->method == "mse") {
+	 //MSE: traditional. 
+	 falseScore = m_falseYVar;
+       } else if(m_hp->method == "amse") {
+	 falseScore = m_falseYVar - pow(m_falseYMean,2);
+       } else if(m_hp->method == "diff") {
+	 falseScore = m_falseYMean;
+       } else if(m_hp->method == "gini") {
+	 falseScore = pow(m_falseYMean,2) * m_falseCount;
+       } else if(m_hp->method == "et") {
+	 falseScore = m_falseY2 - pow(m_falseYMean,2);
+       }
     }
-    theta = (m_trueCount * trueMSE + m_falseCount * falseMSE) / (m_trueCount + m_falseCount + 1e-16);
+
+    if(m_hp->method=="diff") {
+      //greatest difference between right and left branches
+      theta = -pow(m_trueYMean - m_falseYMean,2);
+    } else if(m_hp->method=="gini") {
+      //find largest decrease in gini
+      theta = -(trueScore + falseScore);
+    } else {
+      //weighted average of left and right
+      theta = (m_trueCount * trueScore + m_falseCount * falseScore) / (m_trueCount + m_falseCount + 1e-16);
+    }
 
   } //if not causal
   return(theta);
@@ -418,6 +470,12 @@ pair<double, double> RandomTest::getYVars() {
   pair<double, double> outVars;
   outVars = pair<double, double> (m_trueYVar, m_falseYVar);
   return outVars;
+}
+
+pair<double, double> RandomTest::getY2s() {
+  pair<double, double> outY2s;
+  outY2s = pair<double, double> (m_trueY2, m_falseY2);
+  return outY2s;
 }
 
 pair<double, double> RandomTest::getErrs() {
@@ -479,8 +537,10 @@ void RandomTest::updateStatsClassification(const Sample& sample, const bool& dec
 
 void RandomTest::updateStatsRegression(const Sample& sample, const bool& decision) {
   if (decision) { //update right side
-    //update error
-    m_trueErr += sample.w * (sample.yReg - m_trueYMean);
+    //update y^2 - stores as a mean 
+    m_trueY2 = (m_trueY2 * m_trueCount + sample.w * pow(sample.yReg,2)) / (m_trueCount + sample.w);
+
+    m_trueErr = (m_trueErr * m_trueCount + sample.w * (sample.yReg - m_trueYMean)) / (m_trueCount + sample.w);
 
     //update mean and variance of y
     m_trueYVar = (m_trueYVar * m_trueCount + sample.w * pow(m_trueYMean - sample.yReg,2)) / (m_trueCount + sample.w);
@@ -495,8 +555,10 @@ void RandomTest::updateStatsRegression(const Sample& sample, const bool& decisio
 
     }
   } else { //update left side
-    //update error
-    m_falseErr += sample.w * (sample.yReg - m_falseYMean);
+    //update y^2 - stores as a mean
+    //m_falseErr += sample.w * (sample.yReg - m_falseYMean);
+    m_falseY2 = (m_falseY2 * m_falseCount + sample.w * pow(sample.yReg,2)) / (m_falseCount + sample.w);
+    m_falseErr = (m_falseErr * m_falseCount + sample.w * (sample.yReg - m_falseYMean)) / (m_falseCount + sample.w);
 
     //update mean of y
     m_falseYVar = (m_falseYVar * m_falseCount + sample.w * pow(m_falseYMean - sample.yReg,2)) / (m_falseCount + sample.w);
@@ -984,7 +1046,7 @@ OnlineNode::OnlineNode(const Hyperparameters& hp, const int& numFeatures,
   m_wCounts(Eigen::VectorXd::Zero(hp.numTreatments)),
   m_yStats(Eigen::VectorXd::Zero(hp.numTreatments)),
   m_yVarStats(Eigen::VectorXd::Zero(hp.numTreatments)),
-  m_yMean(0.0), m_yVar(0.0), m_err(0.0), 
+  m_yMean(0.0), m_yVar(0.0), m_y2(0.0), m_err(0.0),
   m_tauHat(Eigen::VectorXd::Zero(hp.numTreatments)),
   m_tauVarHat(Eigen::VectorXd::Zero(hp.numTreatments))
 {
@@ -1010,6 +1072,7 @@ OnlineNode::OnlineNode(const Hyperparameters& hp, const int& numFeatures,
 		       const double parentCounter,
 		       const double parentYMean,
 		       const double parentYVar,
+		       const double parentY2,
 		       const double parentErr,
 		       int nodeNumber, int parentNodeNumber, int& numNodes,
 		       const Eigen::VectorXd &rootYStats, const double &rootCounter) :
@@ -1024,6 +1087,7 @@ OnlineNode::OnlineNode(const Hyperparameters& hp, const int& numFeatures,
   m_rootYStats(&rootYStats), 
   m_rootCounter(&rootCounter),
   m_yMean(parentYMean), m_yVar(parentYVar),
+  m_y2(parentY2),
   m_err(parentErr)
 {
 
@@ -1044,6 +1108,7 @@ OnlineNode::OnlineNode(const Hyperparameters& hp, const int& numFeatures,
 		       const double parentCounter,
 		       const double parentYMean,
 		       const double parentYVar,
+		       const double parentY2,
 		       const double parentErr,
 		       const Eigen::VectorXd& parentWCounts,
 		       const Eigen::VectorXd& parentYVarStats,
@@ -1066,6 +1131,7 @@ OnlineNode::OnlineNode(const Hyperparameters& hp, const int& numFeatures,
   m_yVarStats(parentYVarStats),
   m_yMean(parentYMean), 
   m_yVar(parentYVar),  
+  m_y2(parentY2),
   m_err(parentErr),
   m_tauHat(Eigen::VectorXd::Zero(hp.numTreatments)),
   m_tauVarHat(Eigen::VectorXd::Zero(hp.numTreatments))
@@ -1115,9 +1181,10 @@ OnlineNode::OnlineNode(const Eigen::VectorXd& nodeParms, const Hyperparameters& 
   m_parentCounter = static_cast<double>(nodeParms(7));
   m_yMean = static_cast<double>(nodeParms(8)); //prediction for the node
   m_yVar = static_cast<double>(nodeParms(9)); //variance estimate for the node
-  m_err = static_cast<double>(nodeParms(10)); //prediction for the node
+  m_y2 = static_cast<double>(nodeParms(10)); //prediction for the node
+  m_err = static_cast<double>(nodeParms(11)); //prediction for the node
 
-  int pos=11;
+  int pos=12;
   if(m_hp->causal == true) {
     //if causal need to extract tauHat mean and variance, treatment counts, and y statistics
      //mean
@@ -1172,14 +1239,16 @@ OnlineNode::OnlineNode(const Eigen::VectorXd& nodeParms, const Hyperparameters& 
     int trueYMean = nodeParms(pos);
     int trueYVar = nodeParms(pos+1);
     int trueCount = static_cast<int>(nodeParms(pos+2));
-    int trueErr = nodeParms(pos+3);
-    pos = pos + 4;
+    int trueY2 = nodeParms(pos+3);
+    int trueErr = nodeParms(pos+4);
+    pos = pos + 5;
     
     int falseYMean = nodeParms(pos);
     int falseYVar = nodeParms(pos+1);
     int falseCount = static_cast<int>(nodeParms(pos+2));
-    int falseErr = nodeParms(pos+3);
-    pos = pos + 4;
+    int falseY2 = nodeParms(pos+3);
+    int falseErr = nodeParms(pos+4);
+    pos = pos + 5;
     
 
     if(m_hp->causal == true) {
@@ -1228,6 +1297,7 @@ OnlineNode::OnlineNode(const Eigen::VectorXd& nodeParms, const Hyperparameters& 
 			  trueYMean, falseYMean,
 			  trueYVar, falseYVar,
 			  trueCount, falseCount,
+			  trueY2, falseY2,
 			  trueErr, falseErr,
 			  trueWCounts, falseWCounts,
 			  trueYStats, falseYStats,
@@ -1241,6 +1311,7 @@ OnlineNode::OnlineNode(const Eigen::VectorXd& nodeParms, const Hyperparameters& 
 			  trueYMean, falseYMean,
 			  trueYVar, falseYVar,
 			  trueCount, falseCount,
+			  trueY2, falseY2,
 			  trueErr, falseErr,
 			  *m_rootYStats, *m_rootCounter);
       
@@ -1289,9 +1360,10 @@ OnlineNode::OnlineNode(const Eigen::VectorXd& nodeParms, const Hyperparameters& 
   m_parentCounter = static_cast<double>(nodeParms(7));
   m_yMean = static_cast<double>(nodeParms(8)); //prediction for the node
   m_yVar = static_cast<double>(nodeParms(9)); //variance estimate for the node
-  m_err = static_cast<double>(nodeParms(10)); //prediction for the node
+  m_y2 = static_cast<double>(nodeParms(10)); //prediction for the node
+  m_err = static_cast<double>(nodeParms(11)); //prediction for the node
 
-  int pos=11;
+  int pos=12;
   if(m_hp->causal == true) {
     //if causal need to extract tauHat mean and variance, treatment counts, and y statistics
      //mean
@@ -1346,15 +1418,16 @@ OnlineNode::OnlineNode(const Eigen::VectorXd& nodeParms, const Hyperparameters& 
     int trueYMean = nodeParms(pos);
     int trueYVar = nodeParms(pos+1);
     int trueCount = static_cast<int>(nodeParms(pos+2));
-    int trueErr = nodeParms(pos+3);
-    pos = pos + 4;
+    int trueY2 = nodeParms(pos+3);
+    int trueErr = nodeParms(pos+4);
+    pos = pos + 5;
     
     int falseYMean = nodeParms(pos);
     int falseYVar = nodeParms(pos+1);
     int falseCount = static_cast<int>(nodeParms(pos+2));
-    int falseErr = nodeParms(pos+3);
-    pos = pos + 4;
-    
+    int falseY2 = nodeParms(pos+3);
+    int falseErr = nodeParms(pos+4);
+    pos = pos + 5;    
 
     if(m_hp->causal == true) {
       //prepare vectors to create the random test
@@ -1402,6 +1475,7 @@ OnlineNode::OnlineNode(const Eigen::VectorXd& nodeParms, const Hyperparameters& 
 			  trueYMean, falseYMean,
 			  trueYVar, falseYVar,
 			  trueCount, falseCount,
+			  trueY2, falseY2,
 			  trueErr, falseErr,
 			  trueWCounts, falseWCounts,
 			  trueYStats, falseYStats,
@@ -1416,6 +1490,7 @@ OnlineNode::OnlineNode(const Eigen::VectorXd& nodeParms, const Hyperparameters& 
 			  trueYVar, falseYVar,
 			  trueCount, falseCount,
 			  trueErr, falseErr,
+			  trueY2, falseY2,
 			  *m_rootYStats, *m_rootCounter);
       
       m_onlineTests.push_back(rt);
@@ -1573,6 +1648,8 @@ void OnlineNode::updateRegression(const Sample& sample) {
 
   //setting this value here breaking somewhere else
   int counter = m_counter + m_parentCounter;
+  m_err = (m_err * counter + sample.w * (sample.yReg - m_yMean)) / (counter + sample.w);
+  m_y2 = (m_y2 * counter + sample.w * pow(sample.yReg,2)) / (counter + sample.w);
 
   m_yMean = (m_yMean * counter + sample.yReg * sample.w) / (counter + sample.w);
   if(counter + sample.w > 1) {
@@ -1581,7 +1658,7 @@ void OnlineNode::updateRegression(const Sample& sample) {
     m_yVar = sample.w * pow(m_yMean - sample.yReg,2);
   }
   m_counter += sample.w;
-  m_err += sample.w * (sample.yReg - m_yMean);
+
 
 
   //variance: Infinitesmal Jacknife (Wager 2014) - resample bootstrap
@@ -1621,12 +1698,14 @@ void OnlineNode::updateRegression(const Sample& sample) {
       m_tauVarHat(nTreat) = 0;
       int denom=0;
       if(m_wCounts(nTreat) > 1) {
-	m_tauVarHat(nTreat) = m_yVarStats(nTreat) * (1.0 / (m_wCounts(nTreat)-1));
+	m_tauVarHat(nTreat) += m_yVarStats(nTreat) * (1.0 / (m_wCounts(nTreat)-1));
 	denom += 1.0 / (m_wCounts(nTreat)-1);
+	//m_tauVarHat(nTreat) = m_yVarStats(nTreat) + m_yVarStats(0);
       }
       if(m_wCounts(0) > 1) {
-	m_tauVarHat(nTreat) = m_yVarStats(0) * (1.0 / (m_wCounts(0)-1));
+	m_tauVarHat(nTreat) += m_yVarStats(0) * (1.0 / (m_wCounts(0)-1));
 	denom += 1.0 / (m_wCounts(0)-1);
+		//m_tauVarHat(nTreat) = m_yVarStats(nTreat) + m_yVarStats(0);
       }
       if(denom > 0) {
 	m_tauVarHat(nTreat) = m_tauVarHat(nTreat) / denom;
@@ -1667,6 +1746,7 @@ void OnlineNode::updateRegression(const Sample& sample) {
       pair<int, int> parentTotCounts=m_bestTest->getTotCounts();
       pair<double, double> parentYMeans=m_bestTest->getYMeans();
       pair<double, double> parentYVars=m_bestTest->getYVars();
+      pair<double, double> parentY2s=m_bestTest->getY2s();
       pair<double, double> parentErrs=m_bestTest->getErrs();
       if(m_hp->causal == false) {
 	m_rightChildNode = new OnlineNode(*m_hp,
@@ -1675,6 +1755,7 @@ void OnlineNode::updateRegression(const Sample& sample) {
 					  parentTotCounts.first, 
 					  parentYMeans.first, 
 					  parentYVars.first, 
+					  parentY2s.first, 
 					  parentErrs.first, 
 					  newNodeNumber, 
 					  m_nodeNumber, *m_numNodes,
@@ -1685,6 +1766,7 @@ void OnlineNode::updateRegression(const Sample& sample) {
 					 parentTotCounts.second, 
 					 parentYMeans.second, 
 					 parentYVars.second, 
+					 parentY2s.second, 
 					 parentErrs.second, 
 					 newNodeNumber + 1, 
 					 m_nodeNumber, *m_numNodes,
@@ -1701,6 +1783,7 @@ void OnlineNode::updateRegression(const Sample& sample) {
 					  parentTotCounts.first, 
 					  parentYMeans.first, 
 					  parentYVars.first, 
+					  parentY2s.first, 
 					  parentErrs.first, 
 					  parentWCounts.first,
 					  parentYStats.first,
@@ -1714,6 +1797,7 @@ void OnlineNode::updateRegression(const Sample& sample) {
 					 parentTotCounts.second, 
 					 parentYMeans.second, 
 					 parentYVars.second, 
+					 parentY2s.second, 
 					 parentErrs.second, 
 					 parentWCounts.second,
 					 parentYStats.second,
@@ -1773,14 +1857,14 @@ void OnlineNode::evalRegression(const Sample& sample, Result& result) {
     if (m_counter + m_parentCounter > 0) {
       result.predictionVarianceRegression = m_yVar;
       result.predictionRegression = m_yMean;
-      //result.weight = m_counter+m_parentCounter;
+      result.weight = m_counter+m_parentCounter;
       if(m_hp->causal == true) {
 	result.tauHat = m_tauHat;
       }
     } else {
       result.predictionVarianceRegression = 1.0;
       result.predictionRegression = 0;
-      //result.weight = 0;
+      result.weight = 0;
       result.tauHat = Eigen::VectorXd::Zero(m_hp->numTreatments);
     }
   } else { //if not a leaf - recurse
@@ -1796,7 +1880,7 @@ void OnlineNode::evalRegression(const Sample& sample, Result& result) {
 	  //child has seen no data, use the parent
 	  result.predictionVarianceRegression = m_yVar;
 	  result.predictionRegression = m_yMean;
-	  //result.weight = m_counter+m_parentCounter;
+	  result.weight = m_counter+m_parentCounter;
 	  if(m_hp->causal == true) {
 	    result.tauHat = m_tauHat;
 	  }
@@ -1807,7 +1891,7 @@ void OnlineNode::evalRegression(const Sample& sample, Result& result) {
 
 	  result.predictionVarianceRegression = childYVars.first;
 	  result.predictionRegression = childYMeans.first;
-	  //result.weight = childCounts.first;
+	  result.weight = childCounts.first;
 
 	  if(m_hp->causal == true) {
 	    pair<Eigen::VectorXd, Eigen::VectorXd> childWCounts = m_bestTest->getWCounts();
@@ -1846,7 +1930,7 @@ void OnlineNode::evalRegression(const Sample& sample, Result& result) {
 	  //child has seen no data, use the parent
 	  result.predictionVarianceRegression = m_yVar;
 	  result.predictionRegression = m_yMean;
-	  //result.weight = m_counter+m_parentCounter;
+	  result.weight = m_counter+m_parentCounter;
 	  if(m_hp->causal == true) {
 	    result.tauHat = m_tauHat;
 	  }
@@ -1856,7 +1940,7 @@ void OnlineNode::evalRegression(const Sample& sample, Result& result) {
 	  
 	  result.predictionVarianceRegression = childYVars.second;
 	  result.predictionRegression = childYMeans.second;
-	  //result.weight = childCounts.second;
+	  result.weight = childCounts.second;
 
 	  if(m_hp->causal == true) {
 	    pair<Eigen::VectorXd, Eigen::VectorXd> childWCounts = m_bestTest->getWCounts();
@@ -2236,7 +2320,7 @@ Eigen::VectorXd OnlineNode::exportParmsRegression() {
   //create vector to export
   
   int vec_size;
-  vec_size = 13 + 10 * m_hp->numRandomTests;
+  vec_size = 14 + 12 * m_hp->numRandomTests;
  
   Eigen::VectorXd nodeParms = Eigen::VectorXd::Zero(vec_size);  //initialize the vector with zeros
   
@@ -2252,9 +2336,10 @@ Eigen::VectorXd OnlineNode::exportParmsRegression() {
   nodeParms(7) = static_cast<double>(m_parentCounter);
   nodeParms(8) = static_cast<double>(m_yMean);
   nodeParms(9) = static_cast<double>(m_yVar);
-  nodeParms(10) = static_cast<double>(m_err);
+  nodeParms(10) = static_cast<double>(m_y2);
+  nodeParms(11) = static_cast<double>(m_err);
 
-  pos = 11;
+  pos = 12;
 
   //save best test information
   int bt_feature=-1;
@@ -2262,9 +2347,6 @@ Eigen::VectorXd OnlineNode::exportParmsRegression() {
   
   if(m_isLeaf == false) { //if NOT a leaf then we dont have a best test but do have randomtests
     pair<int, double> bt_parms;
-    //    pair<double, double> bt_yMeans;
-    //    pair<int, int> bt_counts;
-    //    pair<double, double> bt_err;
 
     bt_parms = m_bestTest->getParms();
     bt_feature=bt_parms.first;
@@ -2293,6 +2375,7 @@ Eigen::VectorXd OnlineNode::exportParmsRegression() {
     pair<double, double> rt_yMeans;
     pair<double, double> rt_yVars;
     pair<int, int> rt_counts;
+    pair<double, double> rt_y2;
     pair<double, double> rt_err;
 
     double rt_trueYMean=0;
@@ -2301,12 +2384,15 @@ Eigen::VectorXd OnlineNode::exportParmsRegression() {
     double rt_falseYVar=0;
     int rt_trueCount=0;
     int rt_falseCount=0;
+    double rt_trueY2=0;
+    double rt_falseY2=0;
     double rt_trueErr=0;
     double rt_falseErr=0;
 
     rt_yMeans = rt.getYMeans();
     rt_yVars = rt.getYVars();
     rt_counts = rt.getTotCounts();
+    rt_y2 = rt.getY2s();
     rt_err = rt.getErrs();
 
     rt_trueYMean=rt_yMeans.first;
@@ -2322,16 +2408,18 @@ Eigen::VectorXd OnlineNode::exportParmsRegression() {
     nodeParms(pos) = static_cast<double>(rt_trueYMean);
     nodeParms(pos+1) = static_cast<double>(rt_trueYVar);
     nodeParms(pos+2) = static_cast<int>(rt_trueCount);
-    nodeParms(pos+3) = static_cast<double>(rt_trueErr);
+    nodeParms(pos+3) = static_cast<double>(rt_trueY2);
+    nodeParms(pos+4) = static_cast<double>(rt_trueErr);
     
-    pos = pos + 4;
+    pos = pos + 5;
 
     nodeParms(pos) = static_cast<double>(rt_falseYMean);
     nodeParms(pos+1) = static_cast<double>(rt_falseYVar);
     nodeParms(pos+2) = static_cast<int>(rt_falseCount);
-    nodeParms(pos+3) = static_cast<double>(rt_falseErr);
+    nodeParms(pos+3) = static_cast<double>(rt_falseY2);
+    nodeParms(pos+4) = static_cast<double>(rt_falseErr);
     
-    pos = pos + 4;
+    pos = pos + 5;
   } //loop nRandTest
   return(nodeParms);
 }
@@ -2341,7 +2429,7 @@ Eigen::VectorXd OnlineNode::exportParmsRegressionCausal() {
   int numTreatments = m_hp->numTreatments; //save this for use in below positions. ==1 for non-causal
   
   int vec_size;
-  vec_size = 13 + 10 * m_hp->numRandomTests + 5 * numTreatments + 6 * numTreatments * m_hp->numRandomTests;
+  vec_size = 14 + 12 * m_hp->numRandomTests + 5 * numTreatments + 6 * numTreatments * m_hp->numRandomTests;
  
   Eigen::VectorXd nodeParms = Eigen::VectorXd::Zero(vec_size);  //initialize the vector with zeros
   
@@ -2357,9 +2445,10 @@ Eigen::VectorXd OnlineNode::exportParmsRegressionCausal() {
   nodeParms(7) = static_cast<double>(m_parentCounter);
   nodeParms(8) = static_cast<double>(m_yMean);
   nodeParms(9) = static_cast<double>(m_yVar);
-  nodeParms(10) = static_cast<double>(m_err);
+  nodeParms(10) = static_cast<double>(m_y2);
+  nodeParms(11) = static_cast<double>(m_err);
 
-  pos = 11;
+  pos = 12;
 
   //add tau hats
   for(int nTreat=0; nTreat < numTreatments; nTreat++) {
@@ -2397,9 +2486,6 @@ Eigen::VectorXd OnlineNode::exportParmsRegressionCausal() {
   
   if(m_isLeaf == false) { //if NOT a leaf then we dont have a best test but do have randomtests
     pair<int, double> bt_parms;
-//     pair<double, double> bt_yMeans;
-//     pair<int, int> bt_counts;
-//     pair<double, double> bt_err;
 
     bt_parms = m_bestTest->getParms();
     bt_feature=bt_parms.first;
@@ -2428,6 +2514,7 @@ Eigen::VectorXd OnlineNode::exportParmsRegressionCausal() {
     pair<double, double> rt_yMeans;
     pair<double, double> rt_yVars;
     pair<int, int> rt_counts;
+    pair<double, double> rt_y2;
     pair<double, double> rt_err;
 
     double rt_trueYMean=0;
@@ -2436,12 +2523,15 @@ Eigen::VectorXd OnlineNode::exportParmsRegressionCausal() {
     double rt_falseYVar=0;
     int rt_trueCount=0;
     int rt_falseCount=0;
+    double rt_trueY2=0;
+    double rt_falseY2=0;
     double rt_trueErr=0;
     double rt_falseErr=0;
 
     rt_yMeans = rt.getYMeans();
     rt_yVars = rt.getYVars();
     rt_counts = rt.getTotCounts();
+    rt_y2 = rt.getY2s();
     rt_err = rt.getErrs();
 
     rt_trueYMean=rt_yMeans.first;
@@ -2450,6 +2540,8 @@ Eigen::VectorXd OnlineNode::exportParmsRegressionCausal() {
     rt_falseYVar=rt_yVars.second;
     rt_trueCount=rt_counts.first;
     rt_falseCount=rt_counts.second;
+    rt_trueY2=rt_y2.first;
+    rt_falseY2=rt_y2.second;
     rt_trueErr=rt_err.first;
     rt_falseErr=rt_err.second;
 
@@ -2457,16 +2549,18 @@ Eigen::VectorXd OnlineNode::exportParmsRegressionCausal() {
     nodeParms(pos) = static_cast<double>(rt_trueYMean);
     nodeParms(pos+1) = static_cast<double>(rt_trueYVar);
     nodeParms(pos+2) = static_cast<int>(rt_trueCount);
+    nodeParms(pos+3) = static_cast<int>(rt_trueY2);
     nodeParms(pos+3) = static_cast<int>(rt_trueErr);
     
-    pos = pos + 4;
+    pos = pos + 5;
 
     nodeParms(pos) = static_cast<double>(rt_falseYMean);
     nodeParms(pos+1) = static_cast<double>(rt_falseYVar);
     nodeParms(pos+2) = static_cast<int>(rt_falseCount);
+    nodeParms(pos+3) = static_cast<int>(rt_falseY2);
     nodeParms(pos+3) = static_cast<int>(rt_falseErr);
     
-    pos = pos + 4;
+    pos = pos + 5;
 
     //save additional parameters needed for causal trees
     pair<Eigen::VectorXd, Eigen::VectorXd> rt_yStats=rt.getYStats();
@@ -2613,7 +2707,11 @@ double OnlineNode::scoreRegression() {
     } //close hellinger 
   } else { //non causal - just calculate mse
     if(m_counter + m_parentCounter > 0) {
-      score = pow(m_err,2) / static_cast<double>(m_counter); 
+      //Athey / Imbens: EMSE = 2 * E(var) - E(mu^2)
+      //      score = 2 * m_yVar - pow(m_yMean,2);
+      score = 2 * m_yVar - (m_y2 / (m_counter + m_parentCounter));
+      //MSE(theta_hat) = var(theta_hat) + (bias(theta_hat))^2
+      //      score = m_yVar + pow(m_err,2); 
     }
   } //close non-causal
   return(score);
@@ -2995,23 +3093,25 @@ void OnlineRF::updateRegression(Sample& sample) {
   }
 }
 
-void OnlineRF::eval(Sample& sample, Result& result) {
+void OnlineRF::eval(Sample& sample, Result& result, bool treeWeight) {
   if(m_hp->type=="classification") {
-    this->evalClassification(sample, result);
+    this->evalClassification(sample, result, treeWeight);
   } else {
-    this->evalRegression(sample, result);
+    this->evalRegression(sample, result, treeWeight);
   }
 }
 
-void OnlineRF::evalClassification(Sample& sample, Result& result) {
+void OnlineRF::evalClassification(Sample& sample, Result& result, bool treeWeight) {
   Result treeResult;
   Eigen::MatrixXd tauHatAll(m_hp->numTrees, *m_numClasses);
+  int totWeight = 0;
 
   for (int nTree = 0; nTree < m_hp->numTrees; ++nTree) {
     //calculate the prediction for the tree
     m_trees[nTree]->eval(sample, treeResult);
     //calculate the aggregate confidences and ITEs
     result.confidence += treeResult.confidence;
+    totWeight += treeResult.weight;
     if(m_hp->causal == true) {
       result.tauHat += treeResult.tauHat;
 
@@ -3021,28 +3121,37 @@ void OnlineRF::evalClassification(Sample& sample, Result& result) {
   }
 
   //average confidence
-  result.confidence /= m_hp->numTrees;
+  if(treeWeight == true) {
+    result.confidence /= totWeight;
+  } else {
+    result.confidence /= m_hp->numTrees;
+  }
 
   //prediction is associated with the max confidence
   result.confidence.maxCoeff(&result.predictionClassification);
 
   if(m_hp->causal == true) {
     //mean ITE estimate
-    result.tauHat /= m_hp->numTrees;
+    if(treeWeight == true) {
+      result.tauHat /= totWeight;
+    } else {
+      result.tauHat /= m_hp->numTrees;
+    }
 
     //all ITE estimates
     result.tauHatAllTrees = tauHatAll;
   }
 }
 
-void OnlineRF::evalRegression(Sample& sample, Result& result) {
+void OnlineRF::evalRegression(Sample& sample, Result& result, bool treeWeight) {
   Eigen::MatrixXd tauHatAll(m_hp->numTrees, m_hp->numTreatments);
   double yVarHat=0; 
   double correction=0;
   Eigen::VectorXd tauVarHat = Eigen::VectorXd::Zero(m_hp->numTreatments);
   double correction2=0;
   Eigen::VectorXd yHatAll(m_hp->numTrees);
-  //int totWeight=0;
+  Eigen::VectorXd wgtAll(m_hp->numTrees);
+  int totWeight=0;
   
   for(int nTree = 0; nTree < m_hp->numTrees; nTree++) {
     Result treeResult;
@@ -3052,11 +3161,15 @@ void OnlineRF::evalRegression(Sample& sample, Result& result) {
     
     //prediction: average of prediction from individual trees (not weighted)
     //result.predictionRegression += treeResult.predictionRegression * static_cast<double>(treeResult.weight);
-    //totWeight += treeResult.weight;    
-    result.predictionRegression += treeResult.predictionRegression;
-
+    totWeight += treeResult.weight;
+    if(treeWeight == true) {
+      result.predictionRegression += treeResult.predictionRegression * treeResult.weight;
+    } else {
+      result.predictionRegression += treeResult.predictionRegression;
+    }
     yHatAll(nTree) = treeResult.predictionRegression;
-    
+    wgtAll(nTree) = treeResult.weight;
+
     if(m_hp->causal == true) {
       result.tauHat += treeResult.tauHat;
       //copy all ITE estimates from the tree into the matrix
@@ -3066,11 +3179,14 @@ void OnlineRF::evalRegression(Sample& sample, Result& result) {
   } // loop nTree
   
   //divide out for averages
-  result.predictionRegression = result.predictionRegression / static_cast<double>(m_hp->numTrees);
-//   if(totWeight > 0) {
-//     result.predictionRegression = result.predictionRegression / totWeight;
-//   }
+  if(treeWeight == true) {
+    result.predictionRegression = result.predictionRegression / static_cast<double>(totWeight);
+  } else {
+    result.predictionRegression = result.predictionRegression / static_cast<double>(m_hp->numTrees);
+  }
+  
   result.yHatAllTrees = yHatAll;
+  result.wgtAllTrees = wgtAll;
   if(m_hp->causal == true) {
     result.tauHat /= m_hp->numTrees;
     result.tauHatAllTrees = tauHatAll;
@@ -3116,44 +3232,6 @@ void OnlineRF::evalRegression(Sample& sample, Result& result) {
     result.tauVarHat = tauVarHat;
   }
 }
-
-      
-//   //if more than one unit in nodes pooled variance estimate
-//   if(m_hp->counterThreshold > 2) { 
-//     result.predictionVarianceRegression /= static_cast<double>(m_hp->numTrees - 1);
-//     for(int nTreat=1; nTreat < m_hp->numTreatments; nTreat++) {
-//       result.tauVarHat(nTreat) /= static_cast<double>(m_hp->numTrees - 1);
-//     }
-//   }
-//   //Variances for counterThreshold == 2:
-//   // use empirical variance from each tree
-//   if(m_hp->counterThreshold <= 2) {
-//     double sampVar = 0;
-//     Eigen::VectorXd sampVarTau = Eigen::VectorXd::Zero(m_hp->numTreatments);
-
-//     for (int nTree = 0; nTree < m_hp->numTrees; nTree++) {
-//       m_trees[nTree]->eval(sample, treeResult);
-//       //sample variance across trees
-//       sampVar += pow(treeResult.predictionRegression - result.predictionRegression,2);
-
-//       for(int nTreat=1; nTreat < m_hp->numTreatments; nTreat++) {
-// 	sampVarTau(nTreat) += pow(treeResult.tauHat(nTreat) - result.tauHat(nTreat), 2);
-//       }
-//     }
-//     //divide out by weights
-//     if((m_hp->numTrees - 1) > 0) {
-//       sampVar /= (m_hp->numTrees - 1);
-//     }
-//     result.predictionVarianceRegression = sampVar;
-
-//     for(int nTreat=1; nTreat < m_hp->numTreatments; nTreat++) {
-//     if((m_hp->numTrees - 1) > 0) {
-//       sampVarTau(nTreat) /= (m_hp->numTrees - 1);
-//     }
-//     result.tauVarHat(nTreat) = sampVarTau(nTreat);
-//     }
-//   }
-//}
 
 //return the parameters updated by the update method
 vector<Eigen::MatrixXd> OnlineRF::exportParms() {
@@ -3296,13 +3374,13 @@ void OnlineRF::train(DataSet& dataset) {
       if (m_hp->findTrainError == true) {
 	if(m_hp->type=="classification") {
 	  Result result(dataset.m_numClasses);
-	  this->eval(dataset.m_samples[randIndex[nSamp]], result);
+	  this->eval(dataset.m_samples[randIndex[nSamp]], result, false);
 	  if (result.predictionClassification != dataset.m_samples[randIndex[nSamp]].yClass) {
 	    trainError[nEpoch]++;
 	  }
 	} else { //type=="regression"
 	  Result result(m_hp->numTreatments);
-	  this->eval(dataset.m_samples[randIndex[nSamp]], result);
+	  this->eval(dataset.m_samples[randIndex[nSamp]], result, false);
 	  trainError[nEpoch]+=pow(result.predictionRegression - dataset.m_samples[randIndex[nSamp]].yReg, 2);
 	}
       } //close findTrainError
@@ -3313,24 +3391,24 @@ void OnlineRF::train(DataSet& dataset) {
 } //close method
 
 //// method for providing predictions from the model
-vector<Result> OnlineRF::test(DataSet& dataset) {
+vector<Result> OnlineRF::test(DataSet& dataset, bool treeWeight) {
   vector<Result> results;
   for (int nSamp = 0; nSamp < dataset.m_numSamples; nSamp++) {
     int num;      
     if(m_hp->type=="classification") {
       num = dataset.m_numClasses;
       Result result(num);
-      this->eval(dataset.m_samples[nSamp], result);
+      this->eval(dataset.m_samples[nSamp], result, treeWeight);
       results.push_back(result);
     } else { //type=="regression"
       if(m_hp->causal == true) {
 	num = m_hp->numTreatments;
 	Result result(num);
-	this->eval(dataset.m_samples[nSamp], result);
+	this->eval(dataset.m_samples[nSamp], result, treeWeight);
 	results.push_back(result);
       } else { // if regression but not causal
 	Result result;
-	this->eval(dataset.m_samples[nSamp], result);
+	this->eval(dataset.m_samples[nSamp], result, treeWeight);
 	results.push_back(result);
       }
     }

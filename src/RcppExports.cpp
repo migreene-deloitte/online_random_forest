@@ -81,15 +81,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // predictOrf
-List predictOrf(Eigen::MatrixXd x, List orfModel, bool allTrees);
-RcppExport SEXP _corf_predictOrf(SEXP xSEXP, SEXP orfModelSEXP, SEXP allTreesSEXP) {
+List predictOrf(Eigen::MatrixXd x, List orfModel, bool allTrees, bool treeWeight);
+RcppExport SEXP _corf_predictOrf(SEXP xSEXP, SEXP orfModelSEXP, SEXP allTreesSEXP, SEXP treeWeightSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Eigen::MatrixXd >::type x(xSEXP);
     Rcpp::traits::input_parameter< List >::type orfModel(orfModelSEXP);
     Rcpp::traits::input_parameter< bool >::type allTrees(allTreesSEXP);
-    rcpp_result_gen = Rcpp::wrap(predictOrf(x, orfModel, allTrees));
+    Rcpp::traits::input_parameter< bool >::type treeWeight(treeWeightSEXP);
+    rcpp_result_gen = Rcpp::wrap(predictOrf(x, orfModel, allTrees, treeWeight));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -153,7 +154,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_corf_online_random_forest", (DL_FUNC) &_corf_online_random_forest, 12},
     {"_corf_orf", (DL_FUNC) &_corf_orf, 4},
     {"_corf_corf", (DL_FUNC) &_corf_corf, 5},
-    {"_corf_predictOrf", (DL_FUNC) &_corf_predictOrf, 3},
+    {"_corf_predictOrf", (DL_FUNC) &_corf_predictOrf, 4},
     {"_corf_causal_orf_cv", (DL_FUNC) &_corf_causal_orf_cv, 12},
     {"_corf_orf_cv", (DL_FUNC) &_corf_orf_cv, 11},
     {"_corf_getImps_", (DL_FUNC) &_corf_getImps_, 1},

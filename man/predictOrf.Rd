@@ -4,7 +4,7 @@
 \alias{predictOrf}
 \title{Predictions from Online Random Forests}
 \usage{
-predictOrf(x, orfModel, allTrees = FALSE)
+predictOrf(x, orfModel, allTrees = FALSE, biasCorrect = FALSE)
 }
 \arguments{
 \item{x}{A matrix of features on which to generate predictions.}

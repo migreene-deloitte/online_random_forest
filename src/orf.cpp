@@ -277,7 +277,7 @@ List causal_online_random_forest_regression(Eigen::MatrixXd x, Eigen::VectorXd y
     matColNames = CharacterVector::create("nodeNumber", "parentNodeNumber", 
 					  "rightChildNodeNumber", "leftChildNodeNumber",
 					  "depth", "isLeaf","counter", "parentCounter",
-					  "yMean","yVar","err");
+					  "yMean","yVar","y2","err");
     
     for(int i=0; i < hp.numTreatments; ++i) {
       matColNames.push_back("tauHat_" + toString(i));
@@ -304,10 +304,12 @@ List causal_online_random_forest_regression(Eigen::MatrixXd x, Eigen::VectorXd y
       matColNames.push_back("randomTest" + toString(j) + "_trueYMean");
       matColNames.push_back("randomTest" + toString(j) + "_trueYVar");
       matColNames.push_back("randomTest" + toString(j) + "_trueCount");
+      matColNames.push_back("randomTest" + toString(j) + "_trueY2");
       matColNames.push_back("randomTest" + toString(j) + "_trueErr");
       matColNames.push_back("randomTest" + toString(j) + "_falseYMean");
       matColNames.push_back("randomTest" + toString(j) + "_falseYVar");
       matColNames.push_back("randomTest" + toString(j) + "_falseCount");
+      matColNames.push_back("randomTest" + toString(j) + "_falseY2");
       matColNames.push_back("randomTest" + toString(j) + "_falseErr");
 
       for(int nTreat=0;  nTreat < hp.numTreatments; nTreat++) {
@@ -558,7 +560,7 @@ List online_random_forest_regression(Eigen::MatrixXd x, Eigen::VectorXd y,
     matColNames = CharacterVector::create("nodeNumber", "parentNodeNumber", 
 					  "rightChildNodeNumber", "leftChildNodeNumber",
 					  "depth", "isLeaf","counter", "parentCounter","yMean", "yVar",
-					  "err");
+					  "y2","err");
     matColNames.push_back("bestTest_feature");
     matColNames.push_back("bestTest_threshold");
     for(int j=0; j < hp.numRandomTests; ++j) {
@@ -567,11 +569,12 @@ List online_random_forest_regression(Eigen::MatrixXd x, Eigen::VectorXd y,
       matColNames.push_back("randomTest" + toString(j) + "_trueYMean");
       matColNames.push_back("randomTest" + toString(j) + "_trueYVar");
       matColNames.push_back("randomTest" + toString(j) + "_trueYCount");
-      matColNames.push_back("randomTest" + toString(j) + "_trueYErr");
+      matColNames.push_back("randomTest" + toString(j) + "_trueY2");
+      matColNames.push_back("randomTest" + toString(j) + "_trueErr");
       matColNames.push_back("randomTest" + toString(j) + "_falseYMean");
       matColNames.push_back("randomTest" + toString(j) + "_falseYVar");
       matColNames.push_back("randomTest" + toString(j) + "_falseYCount");
-      matColNames.push_back("randomTest" + toString(j) + "_falseYErr");
+      matColNames.push_back("randomTest" + toString(j) + "_falseErr");
     }
     colnames(outForestMat) = matColNames;
     outForest["tree" + toString(numF)] = outForestMat;
@@ -816,7 +819,7 @@ List orfRegression(Eigen::MatrixXd x, Eigen::VectorXd y, List orfModel, bool tra
     CharacterVector matColNames;
     matColNames = CharacterVector::create("nodeNumber", "parentNodeNumber", 
 					  "rightChildNodeNumber", "leftChildNodeNumber",
-					  "depth", "isLeaf","counter", "parentCounter", "yMean","yVar","err");
+					  "depth", "isLeaf","counter", "parentCounter", "yMean","yVar","y2","err");
     matColNames.push_back("bestTest_feature");
     matColNames.push_back("bestTest_threshold");
     for(int j=0; j < hp.numRandomTests; ++j) {
@@ -826,11 +829,13 @@ List orfRegression(Eigen::MatrixXd x, Eigen::VectorXd y, List orfModel, bool tra
       matColNames.push_back("randomTest" + toString(j) + "_trueYMean");
       matColNames.push_back("randomTest" + toString(j) + "_trueYVar");
       matColNames.push_back("randomTest" + toString(j) + "_trueCount");
+      matColNames.push_back("randomTest" + toString(j) + "_trueY2");
       matColNames.push_back("randomTest" + toString(j) + "_trueErr");
 
       matColNames.push_back("randomTest" + toString(j) + "_falseYMean");
       matColNames.push_back("randomTest" + toString(j) + "_falseYVar");
       matColNames.push_back("randomTest" + toString(j) + "_falseCount");
+      matColNames.push_back("randomTest" + toString(j) + "_falseY2");
       matColNames.push_back("randomTest" + toString(j) + "_falseErr");
 
     }
@@ -1085,7 +1090,7 @@ List corfRegression(Eigen::MatrixXd x, Eigen::VectorXd y, Eigen::VectorXd treat,
     matColNames = CharacterVector::create("nodeNumber", "parentNodeNumber", 
 					  "rightChildNodeNumber", "leftChildNodeNumber",
 					  "depth", "isLeaf","counter", "parentCounter", "yMean","yVar",
-					  "err");
+					  "y2","err");
 
     for(int i=0; i < hp.numTreatments; ++i) {
       matColNames.push_back("tauHat_" + toString(i));
@@ -1113,10 +1118,12 @@ List corfRegression(Eigen::MatrixXd x, Eigen::VectorXd y, Eigen::VectorXd treat,
       matColNames.push_back("randomTest" + toString(j) + "_trueYMean");
       matColNames.push_back("randomTest" + toString(j) + "_trueYVar");
       matColNames.push_back("randomTest" + toString(j) + "_trueCount");
+      matColNames.push_back("randomTest" + toString(j) + "_trueY2");
       matColNames.push_back("randomTest" + toString(j) + "_trueErr");
       matColNames.push_back("randomTest" + toString(j) + "_falseYMean");
       matColNames.push_back("randomTest" + toString(j) + "_falseYVar");
       matColNames.push_back("randomTest" + toString(j) + "_falseCount");
+      matColNames.push_back("randomTest" + toString(j) + "_falseY2");
       matColNames.push_back("randomTest" + toString(j) + "_falseErr");
 
       for(int i=0; i < hp.numTreatments; ++i) {
@@ -1178,7 +1185,7 @@ List corf(Eigen::MatrixXd x, Eigen::VectorXd y, Eigen::VectorXd treat, List orfM
   return(out);
 }
 
-List predictOrfClassification(Eigen::MatrixXd x, List orfModel, bool allTrees=false) {
+List predictOrfClassification(Eigen::MatrixXd x, List orfModel, bool allTrees=false, bool treeWeight=false) {
   List ret;
   
   //construct the hyper parameter class object
@@ -1211,7 +1218,7 @@ List predictOrfClassification(Eigen::MatrixXd x, List orfModel, bool allTrees=fa
   orf_ = new OnlineRF(forestParms, hp, numClasses, oobe, counter, minFeatRange, maxFeatRange);
  
   //assign predictions to res vector
-  vector<Result> res = orf_->test(testData);
+  vector<Result> res = orf_->test(testData, treeWeight);
 
   //extract values for output
   Eigen::MatrixXd resConf(x.rows(), numClasses);
@@ -1284,7 +1291,7 @@ List predictOrfClassification(Eigen::MatrixXd x, List orfModel, bool allTrees=fa
   return(ret);
 }
 
-List predictOrfRegression(Eigen::MatrixXd x, List orfModel, bool allTrees=false) {
+List predictOrfRegression(Eigen::MatrixXd x, List orfModel, bool allTrees=false, bool treeWeight=false) {
   List ret;
   
   //construct the hyper parameter class object
@@ -1314,11 +1321,12 @@ List predictOrfRegression(Eigen::MatrixXd x, List orfModel, bool allTrees=false)
   orf_ = new OnlineRF(forestParms, hp, oobe, counter, minFeatRange, maxFeatRange);
  
   //assign predictions to res vector
-  vector<Result> res = orf_->test(testData);
+  vector<Result> res = orf_->test(testData, treeWeight);
 
   //extract values for output
   Eigen::VectorXd resVar(x.rows());
   Eigen::VectorXd resPred(x.rows());
+  Eigen::VectorXd resWgt(x.rows());
   Eigen::MatrixXd resTauHat(x.rows(), hp.numTreatments);
   Eigen::MatrixXd resTauVarHat(x.rows(), hp.numTreatments);
 
@@ -1326,7 +1334,8 @@ List predictOrfRegression(Eigen::MatrixXd x, List orfModel, bool allTrees=false)
     //extract prediction and variance estimate
     resPred(i) = res[i].predictionRegression;
     resVar(i) = res[i].predictionVarianceRegression;
-    
+    resWgt(i) = res[i].weight;
+
     //if causal extract ITE means and detail
     if(hp.causal == true) {
       resTauHat.row(i) = res[i].tauHat;
@@ -1338,10 +1347,16 @@ List predictOrfRegression(Eigen::MatrixXd x, List orfModel, bool allTrees=false)
   if(allTrees == true) {
     //copy yHat for all trees 
     Eigen::MatrixXd yHatAllTrees(x.rows(), hp.numTrees);
+    //copy weight for all trees 
+    Eigen::MatrixXd wgtAllTrees(x.rows(), hp.numTrees);
     for(int i=0; i < x.rows(); i++) {
       yHatAllTrees.row(i) = res[i].yHatAllTrees;
+      if(treeWeight == true) {
+	wgtAllTrees.row(i) = res[i].wgtAllTrees;
+      }
     }
     NumericMatrix resYHatAllMat = wrap(yHatAllTrees);
+    NumericMatrix resWgtAllMat = wrap(wgtAllTrees);
 
     //add column labels
     CharacterVector treeNames;
@@ -1350,6 +1365,11 @@ List predictOrfRegression(Eigen::MatrixXd x, List orfModel, bool allTrees=false)
     }
     colnames(resYHatAllMat) = treeNames;
     ret["yHatAllTrees"] = resYHatAllMat;
+
+    if(treeWeight == true) {
+      colnames(resWgtAllMat) = treeNames;
+      ret["wgtAllTrees"] = resWgtAllMat;
+    }
 
     if(hp.causal == true) {//if causal proceed through to extract ITEs from all trees and transform
       //List - one entry per treatment
@@ -1373,12 +1393,13 @@ List predictOrfRegression(Eigen::MatrixXd x, List orfModel, bool allTrees=false)
         colnames(tauHatNM) = treeNames;
         tauHatList["treatment"+toString(nTreat)] = tauHatNM;
       } //loop nTreat
-      ret["tauHat_all"] = tauHatList;
+      ret["tauHatAllTrees"] = tauHatList;
     } //close causal==true
   } //close allTrees==true
   
   NumericVector resPredVec = wrap(resPred);
   NumericVector resVarVec = wrap(resVar);
+  NumericVector resWgtVec = wrap(resWgt);
   NumericMatrix resTauHatMat;
   NumericMatrix resTauVarHatMat;
 
@@ -1402,6 +1423,7 @@ List predictOrfRegression(Eigen::MatrixXd x, List orfModel, bool allTrees=false)
   
   ret["prediction"] = resPredVec;
   ret["variance"] = resVarVec;
+  ret["weight"] = resWgtVec;
   
   //clean up
   delete orf_;
@@ -1410,14 +1432,14 @@ List predictOrfRegression(Eigen::MatrixXd x, List orfModel, bool allTrees=false)
 }
 
 // [[Rcpp::export]]
-List predictOrf(Eigen::MatrixXd x, List orfModel, bool allTrees=false) {
+List predictOrf(Eigen::MatrixXd x, List orfModel, bool allTrees=false, bool treeWeight=false) {
   List hpList = orfModel["hyperparameters"];
   Hyperparameters hp = listToHP(hpList);
   List ret;
   if(hp.type == "classification") {
-    ret = predictOrfClassification(x, orfModel, allTrees);
+    ret = predictOrfClassification(x, orfModel, allTrees, treeWeight);
   } else {
-    ret = predictOrfRegression(x, orfModel, allTrees);
+    ret = predictOrfRegression(x, orfModel, allTrees, treeWeight);
   }
 
   return(ret);
