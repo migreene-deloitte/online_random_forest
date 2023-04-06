@@ -4,9 +4,19 @@
 \alias{orf_cv}
 \title{Online Random Forest Cross Validation}
 \usage{
-orf_cv(x, y, numClasses, numRandomTests, counterThreshold, maxDepth,
-  numTrees, numEpochs, nfolds, type = "classification",
-  method = "gini")
+orf_cv(
+  x,
+  y,
+  numClasses,
+  numRandomTests,
+  counterThreshold,
+  maxDepth,
+  numTrees,
+  numEpochs,
+  nfolds,
+  type = "classification",
+  method = "gini"
+)
 }
 \arguments{
 \item{x}{A matrix of features on which to generate predictions.  Must be equal to `numFeatures` when forest was initialized.}

@@ -4,9 +4,20 @@
 \alias{online_random_forest}
 \title{Online Random Forest}
 \usage{
-online_random_forest(x, y, numRandomTests, counterThreshold, maxDepth,
-  numTrees, numEpochs, type = "classification", method = "gini",
-  findTrainError = FALSE, verbose = FALSE, trainModel = TRUE)
+online_random_forest(
+  x,
+  y,
+  numRandomTests,
+  counterThreshold,
+  maxDepth,
+  numTrees,
+  numEpochs,
+  type = "classification",
+  method = "gini",
+  findTrainError = FALSE,
+  verbose = FALSE,
+  trainModel = TRUE
+)
 }
 \arguments{
 \item{x}{A matrix of features to train the forest.}

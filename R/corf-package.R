@@ -11,6 +11,7 @@
 #'
 #' @docType package
 #' @name init_orf
+#' @name is.orf
 #' @name train_orf
 #' @name predict_orf
 #' @name causal_online_random_forest
@@ -18,3 +19,4 @@
 #' @name causal_orf_cv
 #' @name orf_cv
 #' @name get_importance
+#' @name orf

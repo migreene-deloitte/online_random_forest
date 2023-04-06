@@ -4,9 +4,20 @@
 \alias{causal_orf_cv}
 \title{Causal Online Random Forest Cross Validation}
 \usage{
-causal_orf_cv(x, y, treat, numClasses, numRandomTests, counterThreshold,
-  maxDepth, numTrees, numEpochs, nfolds, type = "classification",
-  method = "gini")
+causal_orf_cv(
+  x,
+  y,
+  treat,
+  numClasses,
+  numRandomTests,
+  counterThreshold,
+  maxDepth,
+  numTrees,
+  numEpochs,
+  nfolds,
+  type = "classification",
+  method = "gini"
+)
 }
 \arguments{
 \item{x}{A matrix of features on which to generate predictions.  Must be equal to `numFeatures` when forest was initialized.}

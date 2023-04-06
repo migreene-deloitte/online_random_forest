@@ -4,8 +4,7 @@
 \alias{predict.orf}
 \title{Predict Online Random Forest}
 \usage{
-\method{predict}{orf}(object, x, allTrees = FALSE, treeWeight = FALSE,
-  ...)
+\method{predict}{orf}(object, x, allTrees = FALSE, treeWeight = FALSE, ...)
 }
 \arguments{
 \item{object}{An online random forest object}

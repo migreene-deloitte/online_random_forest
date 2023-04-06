@@ -6,6 +6,11 @@
 
 using namespace Rcpp;
 
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
 // causal_online_random_forest
 List causal_online_random_forest(Eigen::MatrixXd x, Eigen::VectorXd y, Eigen::VectorXd treat, int numRandomTests, int counterThreshold, int maxDepth, int numTrees, int numEpochs, std::string type, std::string method, bool findTrainError, bool verbose, bool trainModel);
 RcppExport SEXP _corf_causal_online_random_forest(SEXP xSEXP, SEXP ySEXP, SEXP treatSEXP, SEXP numRandomTestsSEXP, SEXP counterThresholdSEXP, SEXP maxDepthSEXP, SEXP numTreesSEXP, SEXP numEpochsSEXP, SEXP typeSEXP, SEXP methodSEXP, SEXP findTrainErrorSEXP, SEXP verboseSEXP, SEXP trainModelSEXP) {

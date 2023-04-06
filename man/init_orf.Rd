@@ -4,11 +4,23 @@
 \alias{init_orf}
 \title{Initialize Online Random Forest}
 \usage{
-init_orf(numFeatures, numRandomTests, counterThreshold, maxDepth, numTrees,
-  numEpochs, numTreatments = 0, numClasses = 0,
-  type = "classification", method = "gini", causal = FALSE,
-  minFeatRange = NULL, maxFeatRange = NULL, labels = NULL,
-  findTrainError = FALSE)
+init_orf(
+  numFeatures,
+  numRandomTests,
+  counterThreshold,
+  maxDepth,
+  numTrees,
+  numEpochs,
+  numTreatments = 0,
+  numClasses = 0,
+  type = "classification",
+  method = "gini",
+  causal = FALSE,
+  minFeatRange = NULL,
+  maxFeatRange = NULL,
+  labels = NULL,
+  findTrainError = FALSE
+)
 }
 \arguments{
 \item{numFeatures}{Number of features that will be in the learning dataset.}

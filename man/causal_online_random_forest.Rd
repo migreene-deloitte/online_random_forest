@@ -4,10 +4,21 @@
 \alias{causal_online_random_forest}
 \title{Causal Online Random Forest}
 \usage{
-causal_online_random_forest(x, y, treat, numRandomTests, counterThreshold,
-  maxDepth, numTrees, numEpochs, type = "classification",
-  method = "gini", findTrainError = FALSE, verbose = FALSE,
-  trainModel = TRUE)
+causal_online_random_forest(
+  x,
+  y,
+  treat,
+  numRandomTests,
+  counterThreshold,
+  maxDepth,
+  numTrees,
+  numEpochs,
+  type = "classification",
+  method = "gini",
+  findTrainError = FALSE,
+  verbose = FALSE,
+  trainModel = TRUE
+)
 }
 \arguments{
 \item{x}{A matrix of features on which to generate predictions.}

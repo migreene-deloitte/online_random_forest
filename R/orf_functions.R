@@ -76,11 +76,11 @@
 #'   Adjusted MSE (Athey, Imbens 2016) is supported where \eqn{AMSE=1/N\sum(Y-\hat{Y})^2 - 1/N\sum \hat{Y}^2}.
 #'   bcmse, is bias corrected mse: \eqn{BCMSE = 1/N\sum(Y-\hat{Y})^2 - 1/N\sum \hat{Y}^2 + (\sum Y-\hat{Y})^2}. 
 #'   The \code{diff} method represents choosing splits based on maximizing the squared difference 
-#'   between the left and right children nodes when splitting. \eqn{diff = (1/N_left\sum Y_left - 1/N_right\sum Y_right)^2}.
+#'   between the left and right children nodes when splitting. \eqn{diff = (1/N_{left}\sum Y_{left} - 1/N_{right}\sum Y_{right})^2}.
 #'   
 #'   For causal regression forests, the Hellinger distance is available and the mean squared
 #'   error. For the Hellinger distance each treatment is considered against the population 
-#'   average: \eqn{D_Hellinger = \sum(\sqrt{1/N_leaf \sum Y_leaf} - \sqrt{1/N_pop \sum Y_pop})^2} where the sum
+#'   average: \eqn{D_{Hellinger} = \sum(\sqrt{1/N_{leaf} \sum Y_{leaf}} - \sqrt{1/N_{pop} \sum Y_{pop}})^2} where the sum
 #'   is performed over all treatments, \eqn{1/N_leaf \sum Y_leaf} is the mean of the outcome in the proposed split
 #'   and \eqn{1/N_pop \sum Y_pop} is the overall average for the outcome. The Hellinger distance is computed
 #'   for the left and right sides of each potential split, and the weighted average is maximized. The 
@@ -557,11 +557,10 @@ train_orf <- function(model, x, y, w=NULL, trainModel=TRUE) {
       stop("w and y have differing numbers of rows")
     }
   } 
-  
     if(model$hyperparameters$causal==FALSE) {
       newmodel = orf(x, y, model, trainModel=trainModel)
    } else {
-      newmodel = corf(x, y, w, model, trainModel=trainModel)
+      newmodel = corf_(x, y, w, model, trainModel=trainModel)
   }
   if(newmodel$hyperparameters$type=="classification") {
     newmodel$labels = model$labels
@@ -823,7 +822,7 @@ orf <- function(x, y, orfModel, trainModel = TRUE) {
 #'  Defaults to TRUE.  Useful for testing.
 #' @seealso \code{\link{init_orf}} for initializing the orf object, \code{\link{train_orf}} for training the orf object
 
-corf <- function(x, y, treat, orfModel, trainModel = TRUE) {
+corf_ <- function(x, y, treat, orfModel, trainModel = TRUE) {
   .Call('_corf_corf', PACKAGE = 'corf', x, y, treat, orfModel, trainModel)
 }
 
@@ -838,7 +837,7 @@ corf <- function(x, y, treat, orfModel, trainModel = TRUE) {
 #' will also return a matrix `tauHatAllTrees`. Default=FALSE.
 #' @seealso \code{\link{predict.orf}} for making predictions from the orf object.
 
-predictOrf <- function(x, orfModel, allTrees = FALSE, biasCorrect = FALSE) {
+predict_orf <- function(x, orfModel, allTrees = FALSE, biasCorrect = FALSE) {
   .Call('_corf_predictOrf', PACKAGE = 'corf', x, orfModel, allTrees, biasCorrect)
 }
 

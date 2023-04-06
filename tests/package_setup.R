@@ -16,7 +16,7 @@ library(dplyr)
 #Rcpp::compileAttributes("corf")
 
 ### documentation creation
-setwd("./corf")
+#setwd("../corf")
 document()
 
 #not working with Rcpp - using R CMD check and R CMD INSTALL instead

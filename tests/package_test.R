@@ -1,12 +1,16 @@
 ## package test
 library(dplyr)
 library(corf)
+?corf
 rm(list=ls())
 ## check documentation is working
 ?init_orf
 ?predict.orf
 ?get_importance
-?corf #need to fix
+?corf #need to fix - the package documentation needs to be fixed.
+
+
+
 
 ### initialize a model
 orfmod <- init_orf(numClasses = 2, numFeatures = 10, numRandomTests = 2, counterThreshold = 10, maxDepth = 5, numTrees = 10, numEpochs = 1,
